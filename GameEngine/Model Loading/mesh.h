@@ -7,7 +7,7 @@
 #include <vector>
 #include "..\Shaders\shader.h"
 
-struct Vertex 
+struct Vertex
 {
 	glm::vec3 pos;
 	glm::vec3 normals;
@@ -58,7 +58,7 @@ struct Vertex
 	}
 };
 
-struct Texture 
+struct Texture
 {
 	unsigned int id;
 	std::string type;
@@ -66,21 +66,22 @@ struct Texture
 
 class Mesh
 {
-	public:
-		std::vector<Vertex> vertices;
-		std::vector<int> indices;
-		std::vector<Texture> textures;
+public:
+	std::vector<Vertex> vertices;
+	std::vector<int> indices;
+	std::vector<Texture> textures;
 
-		unsigned int vao, vbo, ibo;
+	unsigned int vao, vbo, ibo;
 
-		Mesh();	
-		Mesh(std::vector<Vertex> vertices, std::vector<int> indices, std::vector<Texture> textures);
-		Mesh(std::vector<Vertex> vertices, std::vector<int> indices);
-		~Mesh();
+	Mesh();
+	Mesh(std::vector<Vertex> vertices, std::vector<int> indices);
+	Mesh(std::vector<Vertex> vertices, std::vector<int> indices, std::vector<Texture> textures);
+	~Mesh();
 
-		void setTextures(std::vector<Texture> textures);
-		void setup();
-		void setup2();
-		void draw(Shader shader);
+	void setTextures(std::vector<Texture> textures);
+	void setup();
+	void setup2();
+	void draw(Shader shader);
 };
 
+  
