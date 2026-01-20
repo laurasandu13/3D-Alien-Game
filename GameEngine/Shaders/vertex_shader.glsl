@@ -7,6 +7,7 @@ layout (location = 2) in vec2 texCoord;
 out vec2 textureCoord;
 out vec3 norm;
 out vec3 fragPos;
+out vec2 worldPosXZ; // NEW: pass XZ position to fragment shader
 
 uniform mat4 MVP;
 uniform mat4 model;

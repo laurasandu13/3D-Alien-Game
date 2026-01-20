@@ -31,6 +31,18 @@ struct InteractableObject {
 	}
 };
 
+// NEW: hazard zones that damage the player
+struct HazardZone {
+	glm::vec3 position;      // center of hazard zone
+	glm::vec3 size;          // dimensions (x, y, z) of the zone
+	int damageAmount;        // how much damage per hit
+	std::string hazardType;  // "pit", "radiation", "lava", etc.
+
+	HazardZone(glm::vec3 pos, glm::vec3 sz, int dmg, std::string type) :
+		position(pos), size(sz), damageAmount(dmg), hazardType(type) {
+	}
+};
+
 // main game state manager
 class GameState {
 private:
@@ -42,6 +54,16 @@ private:
 
 	std::vector<Task> tasks; // list of all tasks
 	std::vector<InteractableObject> interactables; // all objects player can interact with
+	std::vector<HazardZone> hazardZones; // NEW: dangerous areas
+
+	// NEW: damage cooldown system
+	float lastDamageTime;     // time when player last took damage
+	float damageCooldown;     // minimum time between damage ticks (seconds)
+
+	// NEW: health regeneration system
+	float lastHealTime;       // time when player last healed
+	float healCooldown;       // time between heal ticks (seconds)
+	int healAmount;           // how much health to restore per tick
 
 public:
 	GameState() {
@@ -88,6 +110,62 @@ public:
 	// get all interactables
 	std::vector<InteractableObject>& getInteractables() {
 		return interactables;
+	}
+
+	// NEW: add hazard zone to world
+	void addHazardZone(glm::vec3 pos, glm::vec3 size, int damage, std::string type) {
+		hazardZones.push_back(HazardZone(pos, size, damage, type));
+	}
+
+	// NEW: get all hazard zones
+	std::vector<HazardZone>& getHazardZones() {
+		return hazardZones;
+	}
+
+	// NEW: check if player is inside any hazard zone
+	bool isPlayerInHazard(glm::vec3 playerPos, HazardZone** outHazard = nullptr) {
+		for (auto& hazard : hazardZones) {
+			// AABB collision check
+			float minX = hazard.position.x - hazard.size.x / 2.0f;
+			float maxX = hazard.position.x + hazard.size.x / 2.0f;
+			float minZ = hazard.position.z - hazard.size.z / 2.0f;
+			float maxZ = hazard.position.z + hazard.size.z / 2.0f;
+
+			if (playerPos.x >= minX && playerPos.x <= maxX &&
+				playerPos.z >= minZ && playerPos.z <= maxZ) {
+				if (outHazard != nullptr) {
+					*outHazard = &hazard;
+				}
+				return true; // player is inside this hazard
+			}
+		}
+		return false; // player is safe
+	}
+
+	// NEW: update health system (call every frame)
+	void updateHealthSystem(glm::vec3 playerPos, float currentTime) {
+		if (gameOver) return; // don't process if dead
+
+		HazardZone* currentHazard = nullptr;
+		bool inHazard = isPlayerInHazard(playerPos, &currentHazard);
+
+		if (inHazard && currentHazard != nullptr) {
+			// Player is in danger - apply damage with cooldown
+			if (currentTime - lastDamageTime >= damageCooldown) {
+				takeDamage(currentHazard->damageAmount);
+				lastDamageTime = currentTime;
+				std::cout << "[DAMAGE] You stepped into " << currentHazard->hazardType
+					<< "! Health: " << playerHealth << "/" << maxHealth << std::endl;
+			}
+		}
+		else {
+			// Player is safe - regenerate health
+			if (playerHealth < maxHealth && currentTime - lastHealTime >= healCooldown) {
+				heal(healAmount);
+				lastHealTime = currentTime;
+				std::cout << "[HEAL] Health regenerated. Health: " << playerHealth << "/" << maxHealth << std::endl;
+			}
+		}
 	}
 
 	// damage player from hazard zones
