@@ -1,0 +1,36 @@
+# Blender MTL File: 'Set of different types of stones.blend'
+# Material Count: 3
+
+newmtl Material
+Ns 359.999993
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+
+newmtl asphalt_cracked
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+
+newmtl rocks_
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.165155 0.586321 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Bump F:\\Blender_2023_projects\\7_July\\Proj_5\\Textures\\Rocks\\rocks_rocks__norm.bmp
+map_Kd F:\\Blender_2023_projects\\7_July\\Proj_5\\Textures\\Rocks\\rocks_rocks__color.bmp
+map_Ns F:\\Blender_2023_projects\\7_July\\Proj_5\\Textures\\Rocks\\rocks_rocks__rough.bmp
+refl F:\\Blender_2023_projects\\7_July\\Proj_5\\Textures\\Rocks\\rocks_rocks__metal.bmp
