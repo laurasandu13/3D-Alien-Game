@@ -14,7 +14,6 @@ class Camera
 		glm::vec3 cameraUp;
 		glm::vec3 cameraRight;
 
-		//rotation - to be removed
 		float rotationOx;
 		float rotationOy;
 
@@ -27,15 +26,15 @@ class Camera
 		glm::vec3 getCameraPosition();
 		glm::vec3 getCameraViewDirection();
 		glm::vec3 getCameraUp();
-
+		void setCameraViewDirection(glm::vec3 direction);
 		void keyboardMoveFront(float cameraSpeed);
 		void keyboardMoveBack(float cameraSpeed);
 		void keyboardMoveLeft(float cameraSpeed);
 		void keyboardMoveRight(float cameraSpeed);
 		void keyboardMoveUp(float cameraSpeed);
 		void keyboardMoveDown(float cameraSpeed);
-
 		void rotateOx(float angle);
 		void rotateOy(float angle);
+		void setCameraPosition(glm::vec3 position);
 };
 

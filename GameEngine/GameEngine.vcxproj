@@ -137,6 +137,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\fragment_shader.glsl" />
+    <None Include="Shaders\hud_fragment_shader.glsl" />
+    <None Include="Shaders\hud_vertex_shader.glsl" />
     <None Include="Shaders\sun_fragment_shader.glsl" />
     <None Include="Shaders\sun_vertex_shader.glsl" />
     <None Include="Shaders\vertex_shader.glsl" />
