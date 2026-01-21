@@ -19,8 +19,15 @@ void drawHeartsHUD(int livesLeft);
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+const float GROUND_Y = 10.0f;
+const float JUMP_SPEED = 35.0f;
+const float GRAVITY = -90.0f;
+const float CROUCH_OFFSET = 4.0f;
+const float EYE_OFFSET = 2.0f;
+const float STAND_HEIGHT = GROUND_Y + EYE_OFFSET;
+const float CROUCH_HEIGHT = GROUND_Y - CROUCH_OFFSET + EYE_OFFSET;
 Window window("Alien Artifact Recovery", 1920, 1080);
-Camera camera(glm::vec3(0.0f, 10.0f, 780.0f));
+Camera camera(glm::vec3(0.0f, STAND_HEIGHT, 780.0f));
 
 GameState gameState;
 
@@ -32,26 +39,19 @@ float verticalVelocity = 0.0f;
 bool  isGrounded = true;
 bool  isCrouching = false;
 
-const float GROUND_Y = 10.0f;
-const float JUMP_SPEED = 35.0f;
-const float GRAVITY = -90.0f;
-const float CROUCH_OFFSET = 4.0f;
-const float STAND_HEIGHT = GROUND_Y;
-const float CROUCH_HEIGHT = GROUND_Y - CROUCH_OFFSET;
 
 // Player collision shape
 const float PLAYER_RADIUS = 2.0f;
 const float PLAYER_HEIGHT = 6.0f;
 
 // Mouse look parameters
-float yaw = -90.0f;
-float pitch = 0.0f;
 float lastX = 1280.0f / 2.0f;
 float lastY = 720.0f / 2.0f;
 bool  firstMouse = true;
 
 // Camera FOV (zoom)
-float fov = 90.0f;
+float fov = 100.0f;  
+
 
 // Lives (falls allowed)
 int maxLives = 3;
@@ -60,7 +60,7 @@ int lives = maxLives;
 // Pit fall state
 bool  isFallingInPit = false;
 float fallStartTime = 0.0f;
-float fallDuration = 2.0f;     // seconds for fall animation
+float fallDuration = 2.0f;
 glm::vec3 respawnPoint = glm::vec3(0.0f, STAND_HEIGHT, 780.0f);
 
 // Structure to hold object instance data
@@ -77,7 +77,22 @@ std::vector<ObjectInstance> objects;
 Shader* hudShader = nullptr;
 Mesh* hudQuad = nullptr;
 
+// Mouse sensitivity presets
+float sensitivities[] = { 0.05f, 0.02f, 0.01f };
+int   currentSensitivityIndex = 0;
+bool  mKeyWasPressed = false;
+
 // ---------- COLLISION HELPERS FOR BOXES ----------
+
+float sampleTerrainBaseHeight(float x, float z)
+{
+    float height =
+        0.5f * sin(x * 0.05f) * cos(z * 0.05f)
+        + 0.3f * sin(x * 0.15f) * cos(z * 0.15f)
+        + 0.2f * sin(x * 0.3f) * cos(z * 0.3f);
+    return height;
+}
+
 
 bool checkCollision3D(const glm::vec3& playerPos,
     const glm::vec3& objectPos,
@@ -131,9 +146,8 @@ bool checkAllCollisions(const glm::vec3& newPosition,
     const std::vector<ObjectInstance>& objects)
 {
     for (const auto& obj : objects) {
-        if (checkCollisionAllowJump(newPosition, obj.position, obj.scale)) {
+        if (checkCollisionAllowJump(newPosition, obj.position, obj.scale))
             return true;
-        }
     }
     return false;
 }
@@ -153,7 +167,7 @@ bool isInsidePit(const glm::vec3& playerPos, const HazardZone& pit)
     bool insideXZ = (playerPos.x >= minX && playerPos.x <= maxX &&
         playerPos.z >= minZ && playerPos.z <= maxZ);
 
-    return insideXZ; // falling triggers as soon as you are inside pit XZ
+    return insideXZ;
 }
 
 bool checkAnyPitFall(const glm::vec3& playerPos, const std::vector<HazardZone>& pits)
@@ -180,34 +194,18 @@ void mouse_callback(GLFWwindow* glfwWin, double xpos, double ypos)
     lastX = static_cast<float>(xpos);
     lastY = static_cast<float>(ypos);
 
-    const float sensitivity = 0.05f;
+    float sensitivity = sensitivities[currentSensitivityIndex];
     xoffset *= sensitivity;
     yoffset *= sensitivity;
 
-    yaw += xoffset;
-    pitch += yoffset;
-
-    if (pitch > 89.0f)
-        pitch = 89.0f;
-    if (pitch < -89.0f)
-        pitch = -89.0f;
-
-    if (yaw > 360.0f)  yaw -= 360.0f;
-    if (yaw < -360.0f) yaw += 360.0f;
-
-    glm::vec3 direction;
-    direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    direction.y = sin(glm::radians(pitch));
-    direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-    direction = glm::normalize(direction);
-
-    camera.setCameraViewDirection(direction);
+    camera.rotateOy(glm::radians(-xoffset));  // yaw
+    camera.rotateOx(glm::radians(yoffset));  // pitch
 }
 
 void scroll_callback(GLFWwindow* windowPtr, double xoffset, double yoffset)
 {
     fov -= static_cast<float>(yoffset) * 2.0f;
-    if (fov < 30.0f)  fov = 30.0f;
+    if (fov < 60.0f)  fov = 60.0f;
     if (fov > 120.0f) fov = 120.0f;
 }
 
@@ -215,8 +213,8 @@ void scroll_callback(GLFWwindow* windowPtr, double xoffset, double yoffset)
 
 Mesh createTerrainMesh(float size, int divisions, GLuint textureID, const std::vector<HazardZone>& pits)
 {
-    std::vector<Vertex> vertices;
-    std::vector<int>    indices;
+    std::vector<Vertex>  vertices;
+    std::vector<int>     indices;
     std::vector<Texture> texVec;
 
     for (int z = 0; z <= divisions; ++z) {
@@ -246,7 +244,6 @@ Mesh createTerrainMesh(float size, int divisions, GLuint textureID, const std::v
             }
 
             v.pos = glm::vec3(fx, height, fz);
-
             v.textureCoords = glm::vec2(
                 (float)x / (float)divisions * 10.0f,
                 (float)z / (float)divisions * 10.0f
@@ -304,6 +301,7 @@ Mesh createTerrainMesh(float size, int divisions, GLuint textureID, const std::v
 }
 
 // ---------- HEART HUD RENDERING ----------
+
 void drawHeartsHUD(int livesLeft)
 {
     if (!hudShader || !hudQuad) return;
@@ -347,8 +345,8 @@ void drawHeartsHUD(int livesLeft)
     glEnable(GL_DEPTH_TEST);
 }
 
-
 // ---------- MAIN ----------
+
 int main()
 {
     std::cout << "=== Game start ===" << std::endl;
@@ -359,17 +357,12 @@ int main()
     glfwSetCursorPosCallback(window.getWindow(), mouse_callback);
     glfwSetScrollCallback(window.getWindow(), scroll_callback);
 
-    std::cout << "Creating main shaders..." << std::endl;
     Shader shader("Shaders/vertex_shader.glsl", "Shaders/fragment_shader.glsl");
     Shader sunShader("Shaders/sun_vertex_shader.glsl", "Shaders/sun_fragment_shader.glsl");
 
-    std::cout << "Creating HUD shader..." << std::endl;
     hudShader = new Shader("Shaders/hud_vertex_shader.glsl", "Shaders/hud_fragment_shader.glsl");
-    std::cout << "HUD shader program ID: " << hudShader->getId() << std::endl;
 
-    // Create HUD quad
     {
-        std::cout << "Creating HUD quad mesh..." << std::endl;
         std::vector<Vertex> hudVertices(4);
         std::vector<int> hudIndices = { 0, 1, 2, 2, 3, 0 };
 
@@ -388,10 +381,6 @@ int main()
 
         std::vector<Texture> emptyTextures;
         hudQuad = new Mesh(hudVertices, hudIndices, emptyTextures);
-        if (hudQuad)
-            std::cout << "HUD quad created successfully." << std::endl;
-        else
-            std::cout << "ERROR: hudQuad is null after creation!" << std::endl;
     }
 
     GLuint sandTex = loadBMP("Resources/Textures/sand.bmp");
@@ -428,15 +417,11 @@ int main()
 
     std::vector<Mesh> staticMeshes;
 
-    std::cout << "Loading static objects..." << std::endl;
-
     staticMeshes.push_back(loader.loadObj("Resources/Models/StaticObjects/crates/Crate_1x1.obj", crate1x1TexVec));
     staticMeshes.push_back(loader.loadObj("Resources/Models/StaticObjects/crates/Crate_1x1_Tall.obj", crate1x1TallTexVec));
     staticMeshes.push_back(loader.loadObj("Resources/Models/StaticObjects/crates/Crate_1x2.obj", crate1x2TexVec));
     staticMeshes.push_back(loader.loadObj("Resources/Models/StaticObjects/crates/Crate_1x2_Tall.obj", crate1x2TallTexVec));
     staticMeshes.push_back(loader.loadObj("Resources/Models/StaticObjects/crates/Crate_2x2_Tall.obj", crate2x2TallTexVec));
-
-    std::cout << "Loaded " << staticMeshes.size() << " static object types." << std::endl;
 
     objects.push_back({ &staticMeshes[0], glm::vec3(-80, 0, -80),   glm::vec3(7.5, 7.5, 7.5), 0 });
     objects.push_back({ &staticMeshes[1], glm::vec3(-100, 0, -60),  glm::vec3(7.5, 7.5, 7.5), 30 });
@@ -449,10 +434,6 @@ int main()
     objects.push_back({ &staticMeshes[3], glm::vec3(-300, 0, -50),  glm::vec3(8.5, 8.5, 8.5), 240 });
     objects.push_back({ &staticMeshes[4], glm::vec3(300, 0, -200),  glm::vec3(11.0, 11.0, 11.0), 270 });
 
-    std::cout << "Placed " << objects.size() << " object instances in the world." << std::endl;
-
-    std::cout << "\nCreating hazard pits..." << std::endl;
-
     gameState.addHazardZone(glm::vec3(0, 0, 700), glm::vec3(20, 10, 20), 1, "Test Pit (ahead)");
     gameState.addHazardZone(glm::vec3(50, 0, 50), glm::vec3(18, 10, 18), 1, "Radiation Pit Alpha");
     gameState.addHazardZone(glm::vec3(-150, 0, -100), glm::vec3(22, 10, 22), 1, "Toxic Pit Beta");
@@ -464,19 +445,13 @@ int main()
     gameState.addHazardZone(glm::vec3(-200, 0, -200), glm::vec3(17, 10, 17), 1, "Dark Pit Theta");
     gameState.addHazardZone(glm::vec3(100, 0, 300), glm::vec3(20, 10, 20), 1, "Danger Zone Iota");
 
-    std::cout << "Created " << gameState.getHazardZones().size() << " hazard pits." << std::endl;
-
-    std::cout << "Generating terrain with sand dunes and carved pits..." << std::endl;
     Mesh terrain = createTerrainMesh(1000.0f, 500, sandTex, gameState.getHazardZones());
-    std::cout << "Terrain generated with dunes and pits!" << std::endl;
 
     respawnPoint = glm::vec3(0.0f, STAND_HEIGHT, 780.0f);
     camera.setCameraPosition(respawnPoint);
     isGrounded = true;
-    verticalVelocity = 0.0f;
     isCrouching = false;
-
-    std::cout << "Entering main loop..." << std::endl;
+    verticalVelocity = 0.0f;
 
     int frameCounter = 0;
 
@@ -490,7 +465,6 @@ int main()
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // Print every 120 frames to avoid spam
         if (frameCounter % 120 == 0) {
             glm::vec3 camPos = camera.getCameraPosition();
             std::cout << "[Frame " << frameCounter
@@ -560,11 +534,7 @@ int main()
             0.1f,
             10000.0f
         );
-        glm::mat4 ViewMatrix = glm::lookAt(
-            camera.getCameraPosition(),
-            camera.getCameraPosition() + camera.getCameraViewDirection(),
-            camera.getCameraUp()
-        );
+        glm::mat4 ViewMatrix = camera.getViewMatrix();
 
         glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -627,12 +597,7 @@ int main()
             obj.mesh->draw(shader);
         }
 
-        // Debug: check that HUD is drawn, and uniforms exist
-        if (frameCounter % 120 == 0) {
-            std::cout << "Calling drawHeartsHUD, lives=" << lives << std::endl;
-        }
         drawHeartsHUD(lives);
-
 
         window.update();
     }
@@ -672,35 +637,57 @@ void processKeyboardInput()
         }
     }
 
+    bool mKey = window.isPressed(GLFW_KEY_M);
+    if (mKey && !mKeyWasPressed) {
+        currentSensitivityIndex++;
+        if (currentSensitivityIndex >= static_cast<int>(sizeof(sensitivities) / sizeof(float)))
+            currentSensitivityIndex = 0;
+
+        std::cout << "Mouse sensitivity set to "
+            << sensitivities[currentSensitivityIndex] << std::endl;
+    }
+    mKeyWasPressed = mKey;
+
     if (window.isPressed(GLFW_KEY_W)) {
         glm::vec3 oldPos = camera.getCameraPosition();
         camera.keyboardMoveFront(cameraSpeed * 4.0f);
-        if (checkAllCollisions(camera.getCameraPosition(), objects)) {
+        if (checkAllCollisions(camera.getCameraPosition(), objects))
             camera.setCameraPosition(oldPos);
-        }
     }
 
     if (window.isPressed(GLFW_KEY_S)) {
         glm::vec3 oldPos = camera.getCameraPosition();
         camera.keyboardMoveBack(cameraSpeed * 4.0f);
-        if (checkAllCollisions(camera.getCameraPosition(), objects)) {
+        if (checkAllCollisions(camera.getCameraPosition(), objects))
             camera.setCameraPosition(oldPos);
-        }
     }
 
     if (window.isPressed(GLFW_KEY_A)) {
         glm::vec3 oldPos = camera.getCameraPosition();
-        camera.keyboardMoveLeft(cameraSpeed);
-        if (checkAllCollisions(camera.getCameraPosition(), objects)) {
+        camera.keyboardMoveLeft(cameraSpeed);  // sign already set in camera.cpp
+        if (checkAllCollisions(camera.getCameraPosition(), objects))
             camera.setCameraPosition(oldPos);
-        }
     }
 
     if (window.isPressed(GLFW_KEY_D)) {
         glm::vec3 oldPos = camera.getCameraPosition();
         camera.keyboardMoveRight(cameraSpeed);
-        if (checkAllCollisions(camera.getCameraPosition(), objects)) {
+        if (checkAllCollisions(camera.getCameraPosition(), objects))
             camera.setCameraPosition(oldPos);
-        }
+    }
+
+    float rotSpeed = glm::radians(60.0f) * deltaTime;
+
+    if (window.isPressed(GLFW_KEY_LEFT)) {
+        camera.rotateOy(rotSpeed);      // look left
+    }
+    if (window.isPressed(GLFW_KEY_RIGHT)) {
+        camera.rotateOy(-rotSpeed);     // look right
+    }
+    if (window.isPressed(GLFW_KEY_UP)) {
+        camera.rotateOx(rotSpeed);
+    }
+    if (window.isPressed(GLFW_KEY_DOWN)) {
+        camera.rotateOx(-rotSpeed);
     }
 }
